@@ -109,6 +109,8 @@
 *       spitbol -u min:x86_64:compress cgen.spt
 
 
+init
+
 *   revision history:
 
 	version = 'v1.00'
@@ -151,6 +153,9 @@
 	log_cfp_c = '3'
 	op_w = 'q'
 	op_c = 'b'
+
+
+	
 
 config.done
 
@@ -649,7 +654,7 @@ inputok
 
 *   associate output files.
 
-	filenamo = 'osint/c' fileprefix '.c'
+	filenamo = 'cosint/c' fileprefix '.c'
 	output(.outfile,2,filenamo)                         :s(outputok)
 	output = '  cannot open asm file: ' filenamo        :(end)
 
