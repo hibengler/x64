@@ -36,8 +36,9 @@ BASEBOL =   ./bin/sbl
 #LOBJS=  dlfcn.o load.o
 LOBJS=
 
-spitbol: 
+spitbol: sbl csbl
 #	rm sbl sbl.lex sbl.s sbl.err err.s
+sbl:
 	$(BASEBOL) lex.sbl 
 	$(BASEBOL) -x asm.sbl
 	$(BASEBOL) -x -1=sbl.err -2=err.asm err.sbl
@@ -48,6 +49,11 @@ spitbol:
 	$(CC) $(CFLAGS) -c osint/*.c
 	$(CC) $(CFLAGS) *.o -osbl -lm
 # link spitbol with dynamic linking
+
+csbl:	sbl
+	$(BASEBOL) -x cgen.sbl
+	$(CC) $(CFLAGS) *.o c/sbl.c
+
 spitbol-dynamic: $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(LIBS) -osbl -lm 
 

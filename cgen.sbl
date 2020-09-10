@@ -130,10 +130,14 @@
     nos     = '0123456789'
     tab     = char(9)
 
+*       sepchar separates fields in input file
+        
+    sepchar = '|'
+		
 
 *   default the parameter string if none present
 
-    fileprefix = "s"
+    fileprefix = "sbl"
 
 *        cfp_b is bytes per word, cfp_c is characters per word
 *        these should agree with values used in translator
@@ -367,13 +371,13 @@ skip_init.end
 *   initial patterns
 
 *   p.csparse parses tokenized line
-    p.csparse = '{' break('{') . inlabel
-.       '{' break('{') . incode
-.       '{' break('{') . iarg1
-.       '{' break('{') . iarg2
-.       '{' break('{') . iarg3
-.       '{' break('{') . incomment
-    '{' rem . slineno
+    p.csparse = sepchar break(sepchar) . inlabel
+.       sepchar break(sepchar) . incode
+.       sepchar break(sepchar) . iarg1
+.       sepchar break(sepchar) . iarg2
+.       sepchar break(sepchar) . iarg3
+.       sepchar break(sepchar) . incomment
+    sepchar rem . slineno
 
 *   dispatch table
 * these are name addresses of labels in getarg.  I bet this does something like :($label) but faster
@@ -645,7 +649,7 @@ inputok
 
 *   associate output files.
 
-    filenamo = '../osint/c' fileprefix '.c'
+    filenamo = 'osint/c' fileprefix '.c'
     output(.outfile,2,filenamo)                         :s(outputok)
     output = '  cannot open asm file: ' filenamo        :(end)
 
@@ -656,8 +660,8 @@ outputok
 
 *  open file for compilation of minimal err and erb messages
 
-    output(.errfile,3, fileprefix ".err")               :s(err_ok)
-    output = "  cannot open error message file: " fileprefix ".err":(end)
+    output(.errfile,3, 'c' fileprefix ".err")               :s(err_ok)
+    output = "  cannot open error message file: c" fileprefix ".err":(end)
 err_ok
 
 
@@ -692,7 +696,7 @@ nohdr
 *   be declared public when encountered.
 
     pubtab = table(2)
-    input(.pubfile,5, fileprefix ".pub")                :f(nopub)
+    input(.pubfile,5, 'c' fileprefix ".pub")                :f(nopub)
     pubtab = table(101)
 
 pubcopy
@@ -1793,7 +1797,7 @@ genz
 
 *        always generate trace if at label definition
  
-*    z_desc = '"' replace(thisline,'{',' ') '"'
+*    z_desc = '"' replace(thisline,'sepchar',' ') '"'
 *    gencode_c(-2,tab 'zzzz(' tab z_count ',' nlines ',' z_desc ');' )
                                                         :(return)
 
