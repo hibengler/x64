@@ -249,6 +249,10 @@ init
 
 	bsw = 0
 
+*    reads for xxx.min, writes to xxx.lex, where xxx is a command line parameter.
+*    the command line parameter may optionally be expressed as xxx;yyy, where
+*    yyy.cnd is the name of a file containing .defs to override those in
+*    file xxx.min.
 	trandate = date()
 	parm = 'sbl'
 	filenami = parm '.min'
@@ -302,6 +306,11 @@ initmap.next
 	initmap[index] = val                           	:(initmap.next)
 initmap.end
 -stitl crack(line)operands,operand,char
+*   crack parses stmt into a stmt data plex and returns it.
+*   stmt is the common data plex used to hold the components of
+*   a minimal statement during processing.
+*   it fails if there is a syntax error.
+
 	define('crack(line)operands,operand,char')      :(crack.end)
 
 *	break out current line into fields
@@ -340,6 +349,11 @@ error.end
 argform
 	argform = 0
 	ident(t = ityptab[arg])                         :s(argform1)
+
+*   ityptab has table of cases for types 07,08,09,10,11
+*   if entry in this table, type immediately available:
+*   w reg is 08 x reg is 07 (x)+ is 10 -(x) is 11 (x) is 09
+
 	argform = t                                     :(return)
 argform1
 	arg p.nos                                       :s(argform.int)
@@ -423,6 +437,9 @@ outstmt
 .	                                                 :(return)
 outstmt.end
 -stitl rdline()
+*   rdline is called to return the next non-comment line from  
+*   the minimal input file (infile <=> lu1).   note that it will
+*   not fail on eof, but it will return a minimal end statement
 	define('rdline()')                              :(rdline.end)
 rdline
 	rdline = infile                                 :f(rl03)
@@ -504,6 +521,17 @@ report.end
 	init()
 	
 *	Main loop - scan all the lines in the input file.
+
+*   dostmt is invoked to initiate processing of the next line from
+*   rdline.
+*   after doing this, dostmt branches to the generator routine indicated
+*   for this opcode if there is one.
+*   the generators all have entry points beginning
+*   with "g.", and can be considered a logical extension of the
+*   dostmt routine.  the generators have the choice of branching back
+*   to dsgen to cause the thisstmt plex to be sent to outstmt, or
+*   or branching to dsout, in which case the generator must output
+*   all needed code itself.
 
 dsout
 dostmt
