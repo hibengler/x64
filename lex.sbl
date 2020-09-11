@@ -457,9 +457,8 @@ rdline.1
 rl00
 	leq( substr( rdline,1,1 ),'*' )                 :f(rl01)
 
-*	skip full line comment
-
-	:(rdline)
+*   don't	skip full line comment
+*:(rdline)
 
 	outfile = ident(flcflag,'y') rdline             :f(rdline)
 	noutlines = noutlines + 1                       :(rdline)
