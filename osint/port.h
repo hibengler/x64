@@ -41,7 +41,7 @@ Copyright 2012-2017 David Shields
 #endif
 
 #ifndef	RUNTIME
-#define	RUNTIME		0	// not making runtime version
+#define	RUNTIME		0	// not making runtime version of the spitbol executable
 #endif
 
 #ifndef SETREAL
@@ -369,7 +369,11 @@ typedef unsigned long uword;	// minimal word as unsigned value
 #include "osint.h"
 
 #ifdef PRIVATEBLOCKS
+#ifdef m32
 #include "extern32.h"
+#else
+#include "extern64.h"
+#endif
 #else					// PRIVATEBLOCKS
 #include "spitblks.h"
 #include "spitio.h"
@@ -378,4 +382,9 @@ typedef unsigned long uword;	// minimal word as unsigned value
 
 #include "globals.h"
 #include "sproto.h"
+
+// handle if C code - where the variablea ar e all v.something in stead of just globals something:
+#ifdef  GEN_C_CODE
+#include "gen_code_c.h"
+#endif
 

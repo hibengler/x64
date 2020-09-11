@@ -22,7 +22,7 @@ Copyright 2012-2017 David Shields
  */
 #define VWBSHFT     4
 #define VIASHFT     (VWBSHFT+2)
-#define VERSION     5
+#define VERSION     6
 #define SaveVersion ((unsigned char)(VERSION+((WORDBITS/32)<<VWBSHFT)+(IABITS/32)<<VIASHFT))
 #define UargSize    128
 
@@ -33,12 +33,12 @@ struct svfilehdr {
     unsigned char   system;         // system version
     short int       spare;          // spare cells to dword boundary
     char            serial[8];      // compiler serial number
-    char            headv[8];       // version string
+    char            aheadv[8];       // version string
     char            iov[12];        // i/o version string
     unsigned long   timedate;       // date and time of creation
     long            flags;          // spitflag word
     uword           stacksiz;       // total size of stack area
-    char            *stbas;         // base of stack at save time
+    char            *astbas;         // base of stack at save time
     uword           stacklength;    // size of stack area in use
     uword           sec3size;       // size of constant section
     char            *sec3adr;       // address of constant section

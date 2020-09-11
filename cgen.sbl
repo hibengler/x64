@@ -109,7 +109,6 @@
 *       spitbol -u min:x86_64:compress cgen.spt
 
 
-init
 
 *   revision history:
 
@@ -757,7 +756,7 @@ opnext
 
 *     genbop(tstmt('//	' thisline,'','','',''))
      gencode_c(-2,'//b ' thisline)
-     thisline '{{end'			:s(opnext.2)
+     thisline '||end'			:s(opnext.2)
 opnext.0
 
 * did_c_code is a flag so we don't output things if it is not our pass to do so

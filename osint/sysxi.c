@@ -34,12 +34,13 @@ Copyright 2012-2017 David Shields
 /	    1 - requested action not possible
 /	    2 - action caused irrecoverable error
 */
-
 #include "port.h"
 #include <sys/types.h>
 
+
 #if EXECFILE
 #include <a.out.h>
+/* Hib Engler - I looked into this.  This needs to be changed to an elf format. */
 #endif
 
 #include "save.h"
@@ -136,6 +137,59 @@ int zysxi()
 
 #if EXECFILE
     if (IA(long) > 0 ) {
+    
+    /* Hib Engler 3/22/2018. Found some of the code to do this and rewrote it.
+      Basically, this is copying the executable snobol file, and then adding sections to the bottom of it.
+      Well, this can syill be done,  but it should use the ELF format. -- finish another day.
+      Getting the modules to work (spx files) will be good enough for now. */
+        int exefd;
+	word bufsize;
+	word length_to_copy;
+	word size;
+	word extra_space;
+	char *buffer;
+	
+	exefd = openexe(gblargv[0]) ;
+	if (exefd == -1) {
+	  write(STDERRFD("cant read spitbol to make the executable\n");
+	  retval = -1;
+	  goto fail;
+	  }
+	  
+	bufsize = 65536;
+	buffer = GET_MIN_VALUE(DNAMP, char *);
+	size = topmem - buffer;
+	extra_space = bufsize - size;  
+	if (extra>0) {
+	     if (sbrk((uword)extra) == (void *)-1) {
+	       bufsize = size;
+	       extra = 0;
+	       }
+	     }
+	length_to_copy = bufsize;
+	retval = -1;
+	if (!bufsize) goto fail;
+	
+	do {
+	  size = read(exefd,buffer,length_to_copy > bufsize? bufsize:length_to_copy);
+	  if ((!size) || (size == -1)) {
+	    close(exefd);
+	    retval = -1;
+	    goto fail;
+	    }
+	  if (retval) {
+	    length_to_copy = savestart(exefd,buffer,size);
+	    if (length_to_copy==0)  goto fail;
+	    retval = 0;
+	    }
+	  length_to_copy -= size;
+	  retval |= wrtaout(buffer,size);
+	  } while ((length_to_copy >0) && (retval==0));
+        close(fromfd);
+	
+	if (extra > 0) sbrk(-extra);  
+	
+	retval |= saveend(stackbase,stacklength);
 
         /*
         /	Copy entire stack into local storage of temporary SCBLK.
@@ -198,7 +252,7 @@ void heapmove()
 /	These actions must be taken so that these pointers into the
 /	stack can be adjusted every time that the load module is executed.
 /	Why?  Because there is no way to guarantee that the stack can be
-/	rebuilt during subsequent executions of the laod module at the
+/	rebuilt during subsequent executions of the load module at the
 /	same locations as when the load module was written.
 /
 /	So, function unreloc takes such variables and turns them into
@@ -297,13 +351,13 @@ word *stkbase, stklen;
     svfheader.version = SaveVersion;
     svfheader.system = SYSVERSION;
     svfheader.spare = 0;
-    hcopy(vscb->str, svfheader.headv, vscb->len, sizeof(svfheader.headv));
+    hcopy(vscb->str, svfheader.aheadv, vscb->len, sizeof(svfheader.aheadv));
     hcopy(pid1blk->str, svfheader.iov, pid1blk->len, sizeof(svfheader.iov));
     svfheader.timedate = time((time_t *)0);
     svfheader.flags = spitflag;
     svfheader.stacksiz = (uword)stacksiz;
     svfheader.stacklength = (uword)stklen;
-    svfheader.stbas = GET_MIN_VALUE(stbas,char *);
+    svfheader.astbas = GET_MIN_VALUE(stbas,char *);
     svfheader.sec3size = (uword)(GET_DATA_OFFSET(c_yyy,char *) - GET_DATA_OFFSET(c_aaa,char *));
     svfheader.sec3adr = GET_DATA_OFFSET(c_aaa,char *);
     svfheader.sec4size = (uword)(GET_DATA_OFFSET(w_yyy,char *) - GET_DATA_OFFSET(g_aaa,char *));
@@ -329,10 +383,11 @@ word *stkbase, stklen;
     */
     unreloc();
 
+    svfheader.compress = 0;  // hardcode turn compression off. Some day we will use gnupg for that. At least it works. !* later - fix compression
     if (docompress(svfheader.compress, basemem+svfheader.heapsize,
                    (uword)(topmem-(basemem+svfheader.heapsize)) ) )	// Do compression if room
         svfheader.compress = 0;
-
+   
     // write out header
     result |= wrtaout( (unsigned char *)&svfheader, sizeof( struct svfilehdr ) );
 
@@ -385,19 +440,52 @@ int fd;
     unsigned char *bufp;
     int textlen;
 #endif					// EXTFUN
-    word adjusts[15];				// structure to hold adjustments
+    word adjusts[21] = {0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0};				// structure to hold adjustments
+      /* was 15 - but relaj like 
+    /* rnsi_ and rssi_ structures 
+     here is my interpretaion of relcr setting this adjusts array/structure up
+     
+    original s_aaa code address fron the loaded file
+    s_aaa offset   (add to old s_aaa and you are at the new location s_aaa is target code section?
+    original s_yyy - end of original code section
+    
+    original c_aaa   - constant address in original code
+    c_aaa offset (add to original c_aaa section to get new c_aaa
+    original c_yyy - end of the original section
+
+    original g_aaa   - from the original load code
+    gaa_offset to add to place to the new code
+    original g_yyy end for the global section
+    
+    original statb    - static region variable
+    offset from old static region to new static region
+    original state      - end of the sttic region.
+    
+    original dnamb dynamic region
+    offset from old dynamic region to new dynamic region
+    original dynamic region of wc
+    This is placed in xl for all the minimal calls upon loading vie getsave      
+    */    
+    
 
     /*
     / Test if input is from a block device, and if so, peek ahead and
     / see if it's a save file that needs to be loaded.
     */
-    if ( testty(fd) && (pos = LSEEK(fd, (FILEPOS)0, 1)) >=0 )
-    {
+     /*if ( testty(fd) && (pos = LSEEK(fd, (FILEPOS)0, 1)) >=0 )*/
+     if ( testty(fd) ) {
+        // Hib Engler 3/24/2018 there was code that would seek and read the beginning of the file and see if magic1 was working, and then
+	// return via lseek and see if the current position was working.
+	// I guess this would be a loop here or multiple parts in as single file, of the file is another type.
         // If not char device or pipe, peek ahead to see if it's a save file
-        n = read(fd, (char *)&svfheader.magic1, sizeof(svfheader.magic1));
-        LSEEK(fd, pos, 0);           // Restore position
-
-        if (n == sizeof(svfheader.magic1) && svfheader.magic1 == OURMAGIC1)
+	// I wrote it to not use the seek, (but there is an option to) - this allows the spx file to be stream based, like a named pipe.
+	
+        doexpand(0, (char *)0, 0);	// turn off expansion for header
+	if ( expand( fd, (unsigned char *)&svfheader, sizeof(svfheader.magic1) ) ) { // read magic number 1
+		goto noerror_no_magic;
+		}
+	 
+        if (svfheader.magic1 == OURMAGIC1)
         {
             /*
             /   This is reload of a saved impure data region:  set things
@@ -406,9 +494,10 @@ int fd;
             /
             /   Read file header from save file
             */
-
             doexpand(0, (char *)0, 0);	// turn off expansion for header
-            if ( expand( fd, (unsigned char *)&svfheader, sizeof(struct svfilehdr) ) )
+
+	    /* read the rest - excepting the magic */	    
+            if ( expand( fd, ((unsigned char *)&svfheader)+sizeof(svfheader.magic1), sizeof(struct svfilehdr)-sizeof(svfheader.magic1) ) )
                 goto reload_ioerr;
 
             // Check header validity.   ** UNDER CONSTRUCTION **
@@ -424,15 +513,13 @@ int fd;
             spitflag = svfheader.flags;	// restore flags
             spitflag |= NOLIST;		// no listing (screws up swcoup if reset)
             setout();
-#define SKIPIT
-#ifdef SKIPIT
+
             // Check version number
             if ( svfheader.version != SaveVersion )
             {
                 cp = "Wrong save file version.";
                 goto reload_verserr;
             }
-#endif
 
             if ( svfheader.sec3size != (GET_DATA_OFFSET(c_yyy,uword) - GET_DATA_OFFSET(c_aaa,uword)) )
             {
@@ -455,6 +542,8 @@ int fd;
 
             // build onto existing stack
             lowsp = (char *)&fd - svfheader.stacksiz - 100;
+	    
+
 
             s = svfheader.maxsize - svfheader.dynoff; // Minimum load address
             cp = "Insufficient memory to load ";
@@ -493,7 +582,7 @@ int fd;
             if ( expand( fd, (unsigned char *)ptscblk->str, svfheader.stacklength ) )
                 goto reload_ioerr;
 
-            SET_MIN_VALUE(stbas, svfheader.stbas,word);
+            SET_MIN_VALUE(stbas, svfheader.astbas,word);
             lmodstk = (word *)(ptscblk->str + svfheader.stacklength);
             stacksiz = svfheader.stacksiz;
 
@@ -510,6 +599,9 @@ int fd;
             if ( expand(fd, (unsigned char *)basemem+svfheader.dynoff,
                         GET_MIN_VALUE(dnamp,uword)-GET_MIN_VALUE(dnamb,uword)) )
                 goto reload_ioerr;
+            
+	    
+	    
 
             // Relocate all pointers because of different reload addresses
             SET_WA(svfheader.sec5adr);
@@ -518,15 +610,15 @@ int fd;
             SET_XR(basemem);
             SET_CP(basemem+svfheader.dynoff);
             SET_XL(adjusts);
-            MINIMAL(minimal_relcr);
-            MINIMAL(minimal_reloc);
+            MINIMAL(minimal_relcr);  // Sets up adusts with relocation table for code section, constant section, global, static, and dynamic  -- not stack
+            MINIMAL(minimal_reloc);  // Relocate stuff in the dynamic section, working section, static section
 
             // Relocate any return addresses in stack
             SET_WB(ptscblk->str);
             SET_WA(ptscblk->str + svfheader.stacklength);
+            SET_XL(adjusts); // should not have to
             if (svfheader.stacklength) {
-
-                MINIMAL(minimal_relaj);
+                MINIMAL(minimal_relaj); 
 	    }
 
             /* Note: There are return addresses in the PRC_ variables
@@ -561,7 +653,7 @@ int fd;
 
             doexpand(0, (char *)0, 0);	// turn off compression
 
-            LSEEK(fd, (FILEPOS)0, 2); // advance to EOF should be a nop
+/*            LSEEK(fd, (FILEPOS)0, 2); // advance to EOF should be a nop*/
             pathptr = (char *)-1L;  // include paths unknown
             pinpbuf->next = 0;  // no chars left in std input buffer
             pinpbuf->fill = 0;	// ditto
@@ -580,7 +672,7 @@ reload_verserr:
             write( STDERRFD, "Need ", 5);
             write( STDERRFD, ((svfheader.version>>VWBSHFT) & 0xF)==2 ? "32" : "64", 2);
             write( STDERRFD, "-bit SPITBOL release ", 21);
-            write( STDERRFD, svfheader.headv, length(svfheader.headv) );
+            write( STDERRFD, svfheader.aheadv, length(svfheader.aheadv) );
             write( STDERRFD, svfheader.iov, length(svfheader.iov) );
             cp = " to load file ";
             goto reload_err;
@@ -593,7 +685,13 @@ reload_err:
             return -1;
         }
     }
+    
     return 0;
+noerror_no_magic:
+#ifdef WANT_TO_RESTORE_FILE_TO_ORIGINAL_POSITION
+    LSEEK(fd, -sizeof(svfheader.magic1) , SEEK_CUR);           // Restore position
+#endif
+return 0;    
 }
 /*
 /   doexec( scptr )

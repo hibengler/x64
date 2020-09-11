@@ -37,22 +37,57 @@ BASEBOL =   ./bin/sbl
 LOBJS=
 
 spitbol: sbl csbl
-#	rm sbl sbl.lex sbl.s sbl.err err.s
-sbl:
-	$(BASEBOL) lex.sbl 
-	$(BASEBOL) -x asm.sbl
-	$(BASEBOL) -x -1=sbl.err -2=err.asm err.sbl
-	$(ASM) $(ASMFLAGS) err.asm
-	$(ASM) $(ASMFLAGS) int.asm
-	$(ASM) $(ASMFLAGS) sbl.asm
+
+
+#	rm sbl sbl.lex sbl.s sbl.err err.asm
+sbl:	err.o int.o sbl.o
 #stop:
 	$(CC) $(CFLAGS) -c osint/*.c
 	$(CC) $(CFLAGS) *.o -osbl -lm
+	
 # link spitbol with dynamic linking
 
-csbl:	sbl
+
+sbl.lex:	sbl.min
+	$(BASEBOL) lex.sbl 
+
+sbl.asm:	sbl.lex
+	$(BASEBOL) -x asm.sbl
+	
+err.asm:	err.sbl sbl.asm
+	$(BASEBOL) -x -1=sbl.err -2=err.asm err.sbl
+
+err.o:	err.asm
+	$(ASM) $(ASMFLAGS) err.asm
+
+int.o:	int.asm
+	$(ASM) $(ASMFLAGS) int.asm
+
+sbl.o:	sbl.asm
+	$(ASM) $(ASMFLAGS) sbl.asm
+
+
+
+
+
+
+
+csbl:	sbl osint/gen_code_c.h
 	$(BASEBOL) -x cgen.sbl
-	$(CC) $(CFLAGS) *.o c/sbl.c
+	
+	cd cosint; \
+	  pwd; \
+	  $(CC) $(CFLAGS) -DGEN_C_CODE=1 -c ../osint/*.c
+	
+	$(CC) $(CFLAGS) -o csbl -Iosint cosint/*.o  -lm
+
+cosint/cerr.c:	err.asm
+
+osint/gen_code_c.h:  osint/gen_c_code_head_fragment.h osint/gen_c_code_tail_fragment.h cosint/csbl.c
+	$(BASEBOL) cs_c_to_gen_c_code.sbl <cosint/csbl.c >tempad
+	cat >osint/gen_code_c.h  osint/gen_c_code_head_fragment.h  tempad osint/gen_c_code_tail_fragment.h
+	rm  tempad
+			
 
 spitbol-dynamic: $(OBJS)
 	$(CC) $(CFLAGS) $(OBJS) $(LIBS) -osbl -lm 

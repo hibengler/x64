@@ -1,0 +1,99 @@
+* this extracts the middle part of gen_c_code.h to help the osint c functions to compile
+* Basically it is extracting all the #defines, the const structure, and the variable structure.
+* there are two modes - one mode where the assembly stuff is added where we collect and present
+* a comment of the field - and one where the output fiel is devoid of comments 
+* where we just capture the code
+
+	nums = '0123456789'
+	secno = 'sec' any(nums) any(nums)
+	sz = span(' 	') | ''
+	mode = 'nosec'
+
+
+cleanloop
+	the_comment = ''
+
+loop	x = input	:f(end)
+	x '//A' sz secno . mode :s(cleanloop)
+	x break('{') '{' break('{') '{' break('{') '{' break('{') '{' break('{') '{' break('{') '{' break('{') . the_comment '{' 
+	x '//'	:s(loop)
+	:($mode)
+	
+	
+outit
+	ident(the_comment) :s(outit2)
+	output = x '		/* ' the_comment '*/'
+	the_comment = ''
+	:(loop)
+	
+outit2  output = x
+	:(loop)
+	
+	
+outit_def
+	ident(the_comment) :s(outit2)
+	output = x
+	output = '//	^^^ ' the_comment
+	the_comment = ''
+	:(loop)
+
+
+* some versions will not have //a sec information if stripped so we look for other queues
+nosec
+	x	sz '#define'	:f(loop)
+	mode = 'nosec_chunk'
+	:(outit_def)
+
+nosec_chunk
+	x	sz 'struct spit'	:f(outit_def)
+	mode = 'nosec_con'
+	:(outit)
+
+nosec_con
+	x sz '}; /* struct spitbol_variables */'	:s(look_for_entry)
+	:(outit)		
+			
+			
+sec00
+	:(loop)
+
+sec01
+	:(loop)
+sec02
+	
+	x	sz '#define'	:s(outit_def)
+	:(loop)
+	
+	
+sec03	
+	:(outit)
+
+sec04	:(outit)
+
+sec05	
+sec06
+sec07
+sec08
+sec09
+	mode = 'search_for_entry'
+	:(loop)
+	
+look_for_entry
+	mode = 'search_for_entry'
+	:(outit)		
+	
+search_for_entry
+
+	x sz '// BEGIN_ENTRY_DEFINITION'	:f(loop)
+	mode = 'entry_definition'	
+	output = ''
+	
+entry_definition
+	x sz '// END_ENTRY_DEFINITIO'  :s(end)
+	output = x
+	:(loop)
+
+
+
+
+end
